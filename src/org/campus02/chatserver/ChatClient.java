@@ -40,34 +40,62 @@ public class ChatClient implements Runnable{
 		try {
 			while((line = reader.readLine()) != null) {
 				String[] array = line.split(":");
-				if(array[0].equals("<name>")) {
-					this.name = array[1];
+				if(this.name == null && !(array[0].equals("<name>"))) {
+					sendMessage("No Username! <name>: [your nick]");
 				}
-				else if(array[0].equals("<msg>")) {
-					for (ChatClient c : clients) {
-						c.sendMessage(array[1]);
-						log(array[0] + " " + array[1]);
-					}	
-				}
-				else if(array[0].equals("<msgto>")) {
-					if (array.length == 3) {
+				else {
+					if(array[0].equals("<name>")) {
+						this.name = array[1];
 						for (ChatClient c : clients) {
-							if(c.name.equals(array[1])) {
-								c.sendMessage(array[2]);
-								log(array[0] + " " + array[1] + " " + array[2]);
+							if(c.name.equals(this.name)) {
+								continue;
+							}
+							else {
+								c.sendMessage(this.name + " connected!");
 							}
 						}
+						log(this.name + " connected!");
+					}
+					else if(array[0].equals("<msg>")) {
+						for (ChatClient c : clients) {
+							if(c.name.equals(this.name)) {
+								continue;
+							}
+							else {
+								c.sendMessage(this.name + ": " + array[1]);
+							}
+						}
+						log(this.name + " " + array[0] + " " + array[1]);
+					}
+					else if(array[0].equals("<msgto>")) {
+						if (array.length == 3) {
+							for (ChatClient c : clients) {
+								if(c.name.equals(array[1])) {
+									c.sendMessage("private msg from " + this.name + ": " + array[2]);
+								}
+							}
+							log(this.name + " " + array[0] + " " + array[1] + " " + array[2]);
+						}
+						else {
+							sendMessage("wrong format");
+						}
+					}
+					else if(array[0].equals("<bye>")) {
+						for (ChatClient c : clients) {
+							if(c.name.equals(this.name)) {
+								continue;
+							}
+							else {
+								c.sendMessage(this.name + ": bye -User disconnected-");
+							}
+						}
+						log(this.name + ": bye -User disconnected-");
+						close();
 					}
 					else {
 						sendMessage("wrong format");
 					}
-				}
-				else if(array[0].equals("<bye>")) {
-					close();
-				}
-				else {
-					sendMessage("wrong format");
-				}
+				}	
 			}
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -93,17 +121,14 @@ public class ChatClient implements Runnable{
 		synchronized (lock) {
 			File file = new File("/temp/log.txt");
 			try (
-				FileOutputStream fos = new FileOutputStream(file);
+				FileOutputStream fos = new FileOutputStream(file, true);
 				PrintWriter pw = new PrintWriter(fos, true);
 				) {
 					pw.println(logEintrag);
 					pw.flush();
 			} catch (IOException e) {
 				e.printStackTrace();
-			}
-			
-			
+			}	
 		}
 	}
-
 }
