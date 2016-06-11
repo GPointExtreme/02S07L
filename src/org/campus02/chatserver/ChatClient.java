@@ -2,15 +2,14 @@ package org.campus02.chatserver;
 
 import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class ChatClient implements Runnable{
 	
@@ -19,10 +18,11 @@ public class ChatClient implements Runnable{
 	private ArrayList<ChatClient> clients;
 	private Socket client;
 	private String name;
+	private HashMap<String, ChatClient> map;
 	
 	private Object lock = new Object();
 	
-	public ChatClient(ArrayList<ChatClient> clients, Socket client) {
+	public ChatClient(ArrayList<ChatClient> clients, HashMap<String, ChatClient> map,Socket client) {
 		super();
 		try {
 			this.reader = new BufferedReader(new InputStreamReader(client.getInputStream()));
@@ -31,6 +31,7 @@ public class ChatClient implements Runnable{
 			e.printStackTrace();
 		}
 		this.clients = clients;
+		this.map = map;
 		this.client = client;
 	}
 
@@ -45,36 +46,48 @@ public class ChatClient implements Runnable{
 				}
 				else {
 					if(array[0].equals("<name>")) {
-						this.name = array[1];
-						for (ChatClient c : clients) {
-							if(c.name.equals(this.name)) {
-								continue;
-							}
-							else {
-								c.sendMessage(this.name + " connected!");
-							}
+						if(map.containsKey(array[1])) {
+							sendMessage("Nick not unique!");
 						}
-						log(this.name + " connected!");
+						else {
+							this.name = array[1];
+							map.put(this.name, this);
+							for (ChatClient c : clients) {
+								if(c.name.equals(this.name)) {
+									continue;
+								}
+								else {
+									c.sendMessage(this.name + " connected!");
+								}
+							}
+							log(this.name + " connected!");
+						}
 					}
 					else if(array[0].equals("<msg>")) {
-						for (ChatClient c : clients) {
-							if(c.name.equals(this.name)) {
-								continue;
+						if(array.length == 2) {
+							for (ChatClient c : clients) {
+								if(c.name.equals(this.name)) {
+									continue;
+								}
+								else {
+									c.sendMessage(this.name + ": " + array[1]);
+								}
 							}
-							else {
-								c.sendMessage(this.name + ": " + array[1]);
-							}
+							log(this.name + " " + array[0] + " " + array[1]);
 						}
-						log(this.name + " " + array[0] + " " + array[1]);
+						else {
+							sendMessage("wrong format");
+						}
 					}
 					else if(array[0].equals("<msgto>")) {
 						if (array.length == 3) {
-							for (ChatClient c : clients) {
-								if(c.name.equals(array[1])) {
-									c.sendMessage("private msg from " + this.name + ": " + array[2]);
-								}
+							if(map.containsKey(array[1])) {
+								map.get(array[1]).sendMessage("private msg from " + this.name + ": " + array[2]);
+								log(this.name + " " + array[0] + " " + array[1] + " " + array[2]);
 							}
-							log(this.name + " " + array[0] + " " + array[1] + " " + array[2]);
+							else {
+								sendMessage("User doesnt exist!");
+							}
 						}
 						else {
 							sendMessage("wrong format");
@@ -100,6 +113,7 @@ public class ChatClient implements Runnable{
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+		this.close(); //falls while verlassen wird soll der Socket geschlossen werden!
 	}
 	
 	public void sendMessage(String message) {
